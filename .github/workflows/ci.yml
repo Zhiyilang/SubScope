@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.9", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Run the eval suite (offline, stdlib only)
+        run: python eval.py
+
+      # Real bills are full of CJK merchant names. Under a C locale a stray
+      # non-ASCII byte on stdout crashes the harness rather than the code, so
+      # the suite is really executed here -- not just imported.
+      - name: Run under a hostile locale (LC_ALL=C, no PYTHONUTF8)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        env:
+          LC_ALL: C
+          LANG: C
+          PYTHONIOENCODING: ascii
+        run: |
+          unset PYTHONUTF8
+          python eval.py
+
+      - name: End-to-end demo
+        run: python demo.py
